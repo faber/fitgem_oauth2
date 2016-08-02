@@ -18,6 +18,7 @@ module FitgemOauth2
   class Client
 
     DEFAULT_USER_ID = '-'
+    DEFAULT_ACCEPT_LANGUAGE = 'en_US'
     API_VERSION = '1'
 
     attr_reader :client_id
@@ -25,18 +26,29 @@ module FitgemOauth2
     attr_reader :token
     attr_reader :user_id
 
-    def initialize(opts)
-      missing = [:client_id, :client_secret, :token] - opts.keys
-      if missing.size > 0
-        raise FitgemOauth2::InvalidArgumentError, "Missing required options: #{missing.join(',')}"
+    def initialize(
+          client_id:,
+          client_secret:,
+          token: nil,
+          user_id: nil,
+          accept_language: nil,
+          debug: false)
+      @client_id = client_id
+      @client_secret = client_secret
+      @token = token
+      @user_id = (user_id || DEFAULT_USER_ID)
+
+      @accept_language = accept_language || DEFAULT_ACCEPT_LANGUAGE
+      @connection = Faraday.new('https://api.fitbit.com') do |faraday|
+        faraday.adapter Faraday.default_adapter
+        if debug
+          faraday.response :logger, ::Logger.new(STDOUT), bodies: true
+        end
       end
+    end
 
-      @client_id = opts[:client_id]
-      @client_secret = opts[:client_secret]
-      @token = opts[:token]
-      @user_id = (opts[:user_id] || DEFAULT_USER_ID)
-
-      @connection = Faraday.new('https://api.fitbit.com')
+    def reconfigure(token)
+      @token = token
     end
 
     def refresh_access_token(refresh_token)
@@ -51,52 +63,56 @@ module FitgemOauth2
     end
 
     def get_call(url)
+      require_token!
       url = "#{API_VERSION}/#{url}"
       response = connection.get(url) { |request| set_headers(request) }
       parse_response(response)
     end
 
     def post_call(url, params = {})
+      require_token!
       url = "#{API_VERSION}/#{url}"
       response = connection.post(url, params) { |request| set_headers(request) }
       parse_response(response)
     end
 
     def delete_call(url)
+      require_token!
       url = "#{API_VERSION}/#{url}"
       response = connection.delete(url) { |request| set_headers(request) }
       parse_response(response)
     end
 
     private
-    attr_reader :connection
+    attr_reader :connection, :accept_language
+
+    def require_token!
+      unless token
+        fail InvalidArgumentError, "must supply a token before making requests"
+      end
+    end
 
     def set_headers(request)
       request.headers['Authorization'] = "Bearer #{token}"
       request.headers['Content-Type'] = 'application/x-www-form-urlencoded'
+      request.headers['Accept-Language'] = accept_language
     end
 
     def parse_response(response)
       headers_to_keep = %w(fitbit-rate-limit-limit fitbit-rate-limit-remaining fitbit-rate-limit-reset)
 
-      error_handler = {
-          200 => lambda {
-            body = JSON.parse(response.body)
-            body = {body: body} if body.is_a?(Array)
-            body.merge!(response.headers.slice(*headers_to_keep))
-          },
-          400 => lambda { raise FitgemOauth2::BadRequestError },
-          401 => lambda { raise FitgemOauth2::UnauthorizedError },
-          403 => lambda { raise FitgemOauth2::ForbiddenError },
-          404 => lambda { raise FitgemOauth2::NotFoundError },
-          500..599 => lambda { raise FitgemOauth2::ServerError }
-      }
+      parsed_body = begin
+        JSON.parse(response.body)
+      rescue JSON::ParserError
+        {}
+      end
 
-      fn = error_handler.detect { |k, _| k === response.status }
-      if fn === nil
-        raise StandardError, "Unexpected response status #{response.status}"
+      if response.status == 200
+        body = parsed_body
+        body = {body: body} if body.is_a?(Array)
+        body.merge!(response.headers.slice(*headers_to_keep))
       else
-        fn.last.call
+        fail ApiResponseError.new(response.status, parsed_body)
       end
     end
   end

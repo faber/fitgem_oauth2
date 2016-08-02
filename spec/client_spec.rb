@@ -23,20 +23,5 @@ describe FitgemOauth2::Client do
       opts.delete(:user_id)
       expect(client.user_id).to eq(FitgemOauth2::Client::DEFAULT_USER_ID)
     end
-
-    it 'raises an error if client_id is missing' do
-      opts.delete(:client_id)
-      expect { client }.to raise_error(FitgemOauth2::InvalidArgumentError)
-    end
-
-    it 'raises an error if client_secret is missing' do
-      opts.delete(:client_secret)
-      expect { client }.to raise_error(FitgemOauth2::InvalidArgumentError)
-    end
-
-    it 'raises an error if token is missing' do
-      opts.delete(:token)
-      expect { client }.to raise_error(FitgemOauth2::InvalidArgumentError)
-    end
   end
 end
