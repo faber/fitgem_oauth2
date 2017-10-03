@@ -27,7 +27,8 @@ module FitgemOauth2
 
     [ :expired_token,
       :insufficient_scope,
-      :invalid_grant
+      :invalid_grant,
+      :invalid_token
     ].each do |error_type|
       define_method("#{error_type}?") do
         error_types.include?(error_type.to_s)
