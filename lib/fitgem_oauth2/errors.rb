@@ -16,7 +16,13 @@ module FitgemOauth2
     def initialize(status, response_body={})
       @status = status
       @response_body = response_body || {}
-      super(response_body.inspect)
+      super(
+        format(
+          '%d: %s',
+          status,
+          response_body.inspect
+        )
+      )
     end
 
     def error_types
