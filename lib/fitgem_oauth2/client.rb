@@ -40,10 +40,10 @@ module FitgemOauth2
 
       @accept_language = accept_language || DEFAULT_ACCEPT_LANGUAGE
       @connection = Faraday.new('https://api.fitbit.com') do |faraday|
-        faraday.adapter Faraday.default_adapter
         if debug
           faraday.response :logger, ::Logger.new(STDOUT), bodies: true
         end
+        faraday.adapter Faraday.default_adapter
       end
     end
 
