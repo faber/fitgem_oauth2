@@ -8,7 +8,8 @@ module FitgemOauth2
       end
 
       valid_semantic_date = %w(today yesterday).include? date
-      valid_date_string = ((date =~ /\d{4}\-\d{2}\-\d{2}/) == 0)
+      valid_date_string =
+        date.is_a?(String) && ((date =~ /\d{4}\-\d{2}\-\d{2}/) == 0)
       if valid_date_string
         date
       elsif valid_semantic_date
